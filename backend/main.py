@@ -4,8 +4,17 @@ import uuid
 import boto3
 from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 sqs = boto3.client("sqs")
 QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
