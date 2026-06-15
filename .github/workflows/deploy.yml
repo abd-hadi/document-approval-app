@@ -1,0 +1,41 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: 676591241638
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::676591241638:role/GitHubActionsDocumentApprovalRole
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        run: |
+          docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/document-approval-backend:${{ github.sha }} ./backend
+          docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/document-approval-backend:${{ github.sha }}
+
+      - name: Build and push frontend image
+        run: |
+          docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/document-approval-frontend:${{ github.sha }} ./frontend
+          docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/document-approval-frontend:${{ github.sha }}
