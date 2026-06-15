@@ -2,8 +2,7 @@ import os
 import json
 import uuid
 import boto3
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -16,25 +15,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+s3 = boto3.client("s3")
 sqs = boto3.client("sqs")
-QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
 
-class DocumentRequest(BaseModel):
-    documentName: str
-    uploadedBy: str
+QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
+S3_BUCKET = os.environ.get("S3_BUCKET")
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
 @app.post("/documents")
-def upload_document(request: DocumentRequest):
+async def upload_document(
+    file: UploadFile = File(...),
+    uploadedBy: str = Form(...)
+):
     document_id = str(uuid.uuid4())
+    s3_key = f"documents/{document_id}-{file.filename}"
+
+    s3.upload_fileobj(file.file, S3_BUCKET, s3_key)
 
     message = {
         "documentId": document_id,
-        "documentName": request.documentName,
-        "uploadedBy": request.uploadedBy,
+        "documentName": file.filename,
+        "uploadedBy": uploadedBy,
+        "s3Bucket": S3_BUCKET,
+        "s3Key": s3_key,
         "action": "submitted"
     }
 
@@ -44,6 +50,8 @@ def upload_document(request: DocumentRequest):
     )
 
     return {
-        "message": "Document submitted for approval",
-        "documentId": document_id
+        "message": "Document uploaded and submitted for approval",
+        "documentId": document_id,
+        "fileName": file.filename,
+        "s3Key": s3_key
     }
